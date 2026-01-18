@@ -9,6 +9,7 @@ Item {
 
     required property M3Variants.Variant modelData
     required property var list
+    required property int index
 
     implicitHeight: Config.launcher.sizes.itemHeight
 
@@ -17,7 +18,7 @@ Item {
 
     StateLayer {
         radius: Appearance.rounding.normal
-
+        showHoverBackground: ListView.isCurrentItem
         function onClicked(): void {
             root.modelData?.onClicked(root.list);
         }

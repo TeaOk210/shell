@@ -14,6 +14,7 @@ Item {
     required property PersistentProperties visibilities
     required property PersistentProperties state
     required property FileDialog facePicker
+    property string pendingSearchText: ""
     readonly property real nonAnimWidth: view.implicitWidth + viewWrapper.anchors.margins * 2
     readonly property real nonAnimHeight: tabs.implicitHeight + tabs.anchors.topMargin + view.implicitHeight + viewWrapper.anchors.margins * 2
 
@@ -54,6 +55,8 @@ Item {
             anchors.fill: parent
 
             flickableDirection: Flickable.HorizontalFlick
+            focus: root.visibilities.dashboard && root.state.currentTab !== progsPane.index
+            activeFocusOnTab: true
 
             implicitWidth: currentItem.implicitWidth
             implicitHeight: currentItem.implicitHeight
@@ -83,8 +86,28 @@ Item {
                     contentX = Qt.binding(() => currentItem.x);
             }
 
+            Keys.onPressed: function(event) {
+                if (!root.visibilities.dashboard)
+                    return;
+                if (!event.text || event.text.length === 0)
+                    return;
+                if (event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))
+                    return;
+
+                root.triggerProgsSearch(event.text);
+                event.accepted = true;
+            }
+
             RowLayout {
                 id: row
+
+                Component.onCompleted: {
+                    if (root.state.currentTab > tabs.count - 1)
+                        root.state.currentTab = tabs.count - 1;
+                    if (root.state.currentTab < 0)
+                        root.state.currentTab = 0;
+                    }
+
 
                 Pane {
                     index: 0
@@ -103,19 +126,74 @@ Item {
                 }
 
                 Pane {
+                    id: progsPane
+
                     index: 2
-                    sourceComponent: Performance {}
+                    onLoaded: root.flushPendingSearch()
+                    sourceComponent: Progs {
+                        visibilities: root.visibilities
+                        tabActive: progsPane.index === view.currentIndex
+                    }
                 }
 
                 Pane {
                     index: 3
                     sourceComponent: Wallpapers {}
                 }
+
+                Pane {
+                    index: 4
+                    sourceComponent: Performance {}
+                }
             }
 
             Behavior on contentX {
                 Anim {}
             }
+        }
+    }
+
+    function triggerProgsSearch(text): void {
+        if (!text || text.length === 0)
+            return;
+        root.pendingSearchText = `${root.pendingSearchText}${text}`;
+        if (root.state.currentTab !== progsPane.index)
+            root.state.currentTab = progsPane.index;
+        Qt.callLater(() => root.flushPendingSearch());
+    }
+
+    function flushPendingSearch(): void {
+        if (!root.pendingSearchText || root.pendingSearchText.length === 0)
+            return;
+        const progs = progsPane.item;
+        if (!progs || !("insertSearchText" in progs))
+            return;
+        progs.insertSearchText(root.pendingSearchText);
+        root.pendingSearchText = "";
+    }
+
+    function ensureTypingFocus(): void {
+        if (!root.visibilities.dashboard)
+            return;
+        if (root.state.currentTab === progsPane.index)
+            return;
+        view.forceActiveFocus();
+    }
+
+    Connections {
+        target: root.visibilities
+
+        function onDashboardChanged(): void {
+            if (root.visibilities.dashboard)
+                root.ensureTypingFocus();
+        }
+    }
+
+    Connections {
+        target: root.state
+
+        function onCurrentTabChanged(): void {
+            root.ensureTypingFocus();
         }
     }
 

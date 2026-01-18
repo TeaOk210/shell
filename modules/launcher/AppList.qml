@@ -13,8 +13,16 @@ import QtQuick
 StyledListView {
     id: root
 
-    required property StyledTextField search
+    property StyledTextField search
     required property PersistentProperties visibilities
+    property bool allowActions: true
+    property var overrideValues: null
+    property string closeDrawer: "launcher"
+    signal appRightClicked(var entry)
+    property bool mouseSelectionEnabled: true
+    property bool keyboardNavigationActive: false
+    property point lastMousePos: Qt.point(-1, -1)
+    property real mouseMoveThreshold: 2
 
     model: ScriptModel {
         id: model
@@ -28,7 +36,7 @@ StyledListView {
 
     preferredHighlightBegin: 0
     preferredHighlightEnd: height
-    highlightRangeMode: ListView.ApplyRange
+    highlightRangeMode: ListView.NoHighlightRange
 
     highlightFollowsCurrentItem: false
     highlight: StyledRect {
@@ -48,8 +56,46 @@ StyledListView {
         }
     }
 
+    HoverHandler {
+        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+
+        onPointChanged: {
+            if (!root.interactive)
+                return;
+            const pos = point.position;
+            if (root.moving || root.flicking) {
+                root.lastMousePos = Qt.point(pos.x, pos.y);
+                return;
+            }
+            if (root.keyboardNavigationActive) {
+                if (root.lastMousePos.x < 0 && root.lastMousePos.y < 0) {
+                    root.lastMousePos = Qt.point(pos.x, pos.y);
+                    return;
+                }
+                const moved = Math.abs(pos.x - root.lastMousePos.x) + Math.abs(pos.y - root.lastMousePos.y) > root.mouseMoveThreshold;
+                if (!moved)
+                    return;
+                root.keyboardNavigationActive = false;
+                root.mouseSelectionEnabled = true;
+                root.lastMousePos = Qt.point(pos.x, pos.y);
+            } else {
+                root.lastMousePos = Qt.point(pos.x, pos.y);
+            }
+
+            if (!root.mouseSelectionEnabled)
+                return;
+
+            const idx = root.indexAt(pos.x, pos.y);
+            if (idx >= 0 && idx !== root.currentIndex)
+                root.currentIndex = idx;
+        }
+    }
+
     state: {
-        const text = search.text;
+        if (!root.allowActions)
+            return "apps";
+
+        const text = root.search ? root.search.text : "";
         const prefix = Config.launcher.actionPrefix;
         if (text.startsWith(prefix)) {
             for (const action of ["calc", "scheme", "variant"])
@@ -72,7 +118,7 @@ StyledListView {
             name: "apps"
 
             PropertyChanges {
-                model.values: Apps.search(search.text)
+                model.values: root.overrideValues != null ? root.overrideValues : Apps.search(root.search ? root.search.text : "")
                 root.delegate: appItem
             }
         },
@@ -80,7 +126,7 @@ StyledListView {
             name: "actions"
 
             PropertyChanges {
-                model.values: Actions.query(search.text)
+                model.values: Actions.query(root.search ? root.search.text : "")
                 root.delegate: actionItem
             }
         },
@@ -96,7 +142,7 @@ StyledListView {
             name: "scheme"
 
             PropertyChanges {
-                model.values: Schemes.query(search.text)
+                model.values: Schemes.query(root.search ? root.search.text : "")
                 root.delegate: schemeItem
             }
         },
@@ -104,7 +150,7 @@ StyledListView {
             name: "variant"
 
             PropertyChanges {
-                model.values: M3Variants.query(search.text)
+                model.values: M3Variants.query(root.search ? root.search.text : "")
                 root.delegate: variantItem
             }
         }
@@ -220,6 +266,10 @@ StyledListView {
 
         AppItem {
             visibilities: root.visibilities
+            closeDrawer: root.closeDrawer
+            list: root
+            index: index
+            onRightClicked: root.appRightClicked(modelData)
         }
     }
 
@@ -228,6 +278,7 @@ StyledListView {
 
         ActionItem {
             list: root
+            index: index
         }
     }
 
@@ -236,6 +287,7 @@ StyledListView {
 
         CalcItem {
             list: root
+            index: index
         }
     }
 
@@ -244,6 +296,7 @@ StyledListView {
 
         SchemeItem {
             list: root
+            index: index
         }
     }
 
@@ -252,6 +305,7 @@ StyledListView {
 
         VariantItem {
             list: root
+            index: index
         }
     }
 }

@@ -24,7 +24,9 @@ Scope {
             if (root.hasFullscreen)
                 return;
             const v = Visibilities.getForActive();
-            v.launcher = v.dashboard = v.osd = v.utilities = !(v.launcher || v.dashboard || v.osd || v.utilities);
+            const show = !(v.dashboard || v.osd || v.utilities);
+            v.dashboard = v.osd = v.utilities = show;
+            v.launcher = false;
         }
     }
 
@@ -52,12 +54,12 @@ Scope {
 
     CustomShortcut {
         name: "launcher"
-        description: "Toggle launcher"
+        description: "Toggle dashboard"
         onPressed: root.launcherInterrupted = false
         onReleased: {
             if (!root.launcherInterrupted && !root.hasFullscreen) {
                 const visibilities = Visibilities.getForActive();
-                visibilities.launcher = !visibilities.launcher;
+                visibilities.dashboard = !visibilities.dashboard;
             }
             root.launcherInterrupted = false;
         }

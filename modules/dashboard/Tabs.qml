@@ -42,12 +42,17 @@ Item {
 
         Tab {
             iconName: "speed"
-            text: qsTr("Performance")
+            text: qsTr("Progs")
         }
 
         Tab {
             iconName: "cloud"
             text: qsTr("Wallpapers")
+        }
+
+        Tab {
+            iconName: "speed"
+            text: qsTr("Performance")
         }
 
         // Tab {

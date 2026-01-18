@@ -101,8 +101,14 @@ Item {
                 }
             }
 
-            Keys.onUpPressed: list.currentList?.decrementCurrentIndex()
-            Keys.onDownPressed: list.currentList?.incrementCurrentIndex()
+            Keys.onUpPressed: {
+                list.currentList?.decrementCurrentIndex();
+                root.markKeyboardNavigation();
+            }
+            Keys.onDownPressed: {
+                list.currentList?.incrementCurrentIndex();
+                root.markKeyboardNavigation();
+            }
 
             Keys.onEscapePressed: root.visibilities.launcher = false
 
@@ -113,16 +119,20 @@ Item {
                 if (event.modifiers & Qt.ControlModifier) {
                     if (event.key === Qt.Key_J) {
                         list.currentList?.incrementCurrentIndex();
+                        root.markKeyboardNavigation();
                         event.accepted = true;
                     } else if (event.key === Qt.Key_K) {
                         list.currentList?.decrementCurrentIndex();
+                        root.markKeyboardNavigation();
                         event.accepted = true;
                     }
                 } else if (event.key === Qt.Key_Tab) {
                     list.currentList?.incrementCurrentIndex();
+                    root.markKeyboardNavigation();
                     event.accepted = true;
                 } else if (event.key === Qt.Key_Backtab || (event.key === Qt.Key_Tab && (event.modifiers & Qt.ShiftModifier))) {
                     list.currentList?.decrementCurrentIndex();
+                    root.markKeyboardNavigation();
                     event.accepted = true;
                 }
             }
@@ -133,8 +143,15 @@ Item {
                 target: root.visibilities
 
                 function onLauncherChanged(): void {
-                    if (!root.visibilities.launcher)
+                    if (!root.visibilities.launcher) {
                         search.text = "";
+                        return;
+                    }
+
+                    Qt.callLater(() => {
+                        if (list.currentList && list.currentList.count > 0)
+                            list.currentList.currentIndex = 0;
+                    });
                 }
 
                 function onSessionChanged(): void {
@@ -187,5 +204,18 @@ Item {
                 }
             }
         }
+    }
+    function markKeyboardNavigation(): void {
+        const current = list.currentList;
+        if (!current)
+            return;
+        if ("mouseSelectionEnabled" in current)
+            current.mouseSelectionEnabled = false;
+        if ("keyboardNavigationActive" in current)
+            current.keyboardNavigationActive = true;
+        if ("lastMousePos" in current)
+            current.lastMousePos = Qt.point(-1, -1);
+        if (current.currentIndex >= 0)
+            current.positionViewAtIndex(current.currentIndex, ListView.Contain);
     }
 }

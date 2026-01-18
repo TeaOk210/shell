@@ -12,7 +12,7 @@ Item {
         cursorShape: Qt.PointingHandCursor
         onClicked: {
             const visibilities = Visibilities.getForActive();
-            visibilities.launcher = !visibilities.launcher;
+            visibilities.dashboard = !visibilities.dashboard;
         }
     }
 

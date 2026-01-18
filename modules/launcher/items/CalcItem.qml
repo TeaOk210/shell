@@ -10,6 +10,7 @@ Item {
     id: root
 
     required property var list
+    required property int index
     readonly property string math: list.search.text.slice(`${Config.launcher.actionPrefix}calc `.length)
 
     function onClicked(): void {
@@ -24,7 +25,7 @@ Item {
 
     StateLayer {
         radius: Appearance.rounding.normal
-
+        showHoverBackground: ListView.isCurrentItem
         function onClicked(): void {
             root.onClicked();
         }

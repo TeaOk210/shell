@@ -12,6 +12,10 @@ Item {
 
     required property DesktopEntry modelData
     required property PersistentProperties visibilities
+    required property int index
+    property string closeDrawer: "launcher"
+    property var list
+    signal rightClicked(var entry)
 
     implicitHeight: Config.launcher.sizes.itemHeight
 
@@ -20,10 +24,16 @@ Item {
 
     StateLayer {
         radius: Appearance.rounding.normal
-
-        function onClicked(): void {
+        showHoverBackground: ListView.isCurrentItem
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        function onClicked(event): void {
+            if (event.button === Qt.RightButton) {
+                root.rightClicked(root.modelData);
+                return;
+            }
             Apps.launch(root.modelData);
-            root.visibilities.launcher = false;
+            if (root.visibilities && root.closeDrawer && (root.closeDrawer in root.visibilities))
+                root.visibilities[root.closeDrawer] = false;
         }
     }
 

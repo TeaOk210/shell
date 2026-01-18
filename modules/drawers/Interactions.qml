@@ -53,7 +53,14 @@ CustomMouseArea {
     anchors.fill: parent
     hoverEnabled: true
 
-    onPressed: event => dragStart = Qt.point(event.x, event.y)
+    onPressed: event => {
+        dragStart = Qt.point(event.x, event.y);
+        if (visibilities.dashboard && visibilities.dashboardLock && !inTopPanel(panels.dashboard, event.x, event.y)) {
+            visibilities.dashboard = false;
+            visibilities.dashboardLock = false;
+            dashboardShortcutActive = false;
+        }
+    }
     onContainsMouseChanged: {
         if (!containsMouse) {
             // Only hide if not activated by shortcut
@@ -62,7 +69,7 @@ CustomMouseArea {
                 root.panels.osd.hovered = false;
             }
 
-            if (!dashboardShortcutActive)
+            if (!dashboardShortcutActive && !visibilities.dashboardLock)
                 visibilities.dashboard = false;
 
             if (!utilitiesShortcutActive)
@@ -158,23 +165,25 @@ CustomMouseArea {
         }
 
         // Show launcher on hover, or show/hide on drag if hover is disabled
-        if (Config.launcher.showOnHover) {
-            if (!visibilities.launcher && inBottomPanel(panels.launcher, x, y))
-                visibilities.launcher = true;
-        } else if (pressed && inBottomPanel(panels.launcher, dragStart.x, dragStart.y) && withinPanelWidth(panels.launcher, x, y)) {
-            if (dragY < -Config.launcher.dragThreshold)
-                visibilities.launcher = true;
-            else if (dragY > Config.launcher.dragThreshold)
-                visibilities.launcher = false;
+        if (Config.launcher.enabled) {
+            if (Config.launcher.showOnHover) {
+                if (!visibilities.launcher && inBottomPanel(panels.launcher, x, y))
+                    visibilities.launcher = true;
+            } else if (pressed && inBottomPanel(panels.launcher, dragStart.x, dragStart.y) && withinPanelWidth(panels.launcher, x, y)) {
+                if (dragY < -Config.launcher.dragThreshold)
+                    visibilities.launcher = true;
+                else if (dragY > Config.launcher.dragThreshold)
+                    visibilities.launcher = false;
+            }
         }
 
         // Show dashboard on hover
         const showDashboard = Config.dashboard.showOnHover && inTopPanel(panels.dashboard, x, y);
 
         // Always update visibility based on hover if not in shortcut mode
-        if (!dashboardShortcutActive) {
+        if (!dashboardShortcutActive && !visibilities.dashboardLock) {
             visibilities.dashboard = showDashboard;
-        } else if (showDashboard) {
+        } else if (showDashboard && dashboardShortcutActive) {
             // If hovering over dashboard area while in shortcut mode, transition to hover control
             dashboardShortcutActive = false;
         }
@@ -242,6 +251,7 @@ CustomMouseArea {
             } else {
                 // Dashboard hidden, clear shortcut flag
                 root.dashboardShortcutActive = false;
+                root.visibilities.dashboardLock = false;
             }
         }
 
