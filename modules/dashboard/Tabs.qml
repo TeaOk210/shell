@@ -47,7 +47,7 @@ Item {
 
         Tab {
             iconName: "cloud"
-            text: qsTr("Weather")
+            text: qsTr("Wallpapers")
         }
 
         // Tab {
