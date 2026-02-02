@@ -12,8 +12,6 @@ import Quickshell
 import Quickshell.Widgets
 import QtQuick
 import QtQuick.Layouts
-import Qt.labs.settings 1.1
-
 Item {
     id: root
 
@@ -31,11 +29,44 @@ Item {
 
     readonly property int pad: Appearance.padding.large
 
-    Settings {
-        id: pinnedSettings
-        category: "launcher"
+    PersistentProperties {
+        id: pinnedState
+
         property var pinnedIds: []
+
+        reloadableId: "dashboardPinned"
         onPinnedIdsChanged: root.updatePinnedEntries()
+    }
+
+    Timer {
+        id: searchFocusRetry
+
+        interval: 16
+        repeat: true
+        running: false
+        property int remainingAttempts: 0
+
+        function schedule(): void {
+            remainingAttempts = 10;
+            if (!running)
+                start();
+        }
+
+        onTriggered: {
+            if (!root.tabActive || !(root.visibilities?.dashboard ?? false) || !root.visible) {
+                stop();
+                remainingAttempts = 0;
+                return;
+            }
+
+            searchField.forceActiveFocus();
+            if (searchField.activeFocus) {
+                stop();
+                remainingAttempts = 0;
+            } else if (--remainingAttempts <= 0) {
+                stop();
+            }
+        }
     }
 
 
@@ -98,9 +129,9 @@ Item {
     }
 
     function updatePinnedEntries(): void {
-        var ids = sanitizePinnedIds(pinnedSettings.pinnedIds);
-        if (!idsEqual(ids, pinnedSettings.pinnedIds)) {
-            pinnedSettings.pinnedIds = ids;
+        var ids = sanitizePinnedIds(pinnedState.pinnedIds);
+        if (!idsEqual(ids, pinnedState.pinnedIds)) {
+            pinnedState.pinnedIds = ids;
             return;
         }
 
@@ -129,7 +160,7 @@ Item {
         if (typeof entry.id !== "string" || entry.id.length === 0)
             return;
 
-        var ids = pinnedSettings.pinnedIds;
+        var ids = pinnedState.pinnedIds;
         if (!ids || !(ids instanceof Array))
             ids = [];
 
@@ -141,7 +172,7 @@ Item {
             next.splice(idx, 1);
             ids = next;
         }
-        pinnedSettings.pinnedIds = ids;
+        pinnedState.pinnedIds = ids;
         updatePinnedEntries();
     }
 
@@ -206,8 +237,10 @@ Item {
             return;
         var shouldLock = root.visibilities.dashboard && root.tabActive;
         root.visibilities.dashboardLock = shouldLock;
-        if (shouldLock)
+        if (shouldLock) {
             searchField.forceActiveFocus();
+            root.ensureSearchFocus();
+        }
     }
 
     function handleSearchKey(event): void {
@@ -293,7 +326,7 @@ Item {
     onTabActiveChanged: {
         if (tabActive) {
             forceActiveFocus();
-            searchField.forceActiveFocus();
+            root.ensureSearchFocus();
             root.userSelectedSection = false;
             root.applyDefaultSection();
         } else if (searchField.activeFocus) {
@@ -306,6 +339,8 @@ Item {
         if (tabActive)
             forceActiveFocus();
         root.syncDashboardLock();
+        if (tabActive)
+            root.ensureSearchFocus();
         updateAllEntries();
     }
 
@@ -334,8 +369,10 @@ Item {
         target: root.visibilities
         function onDashboardChanged(): void {
             if (root.visibilities.dashboard) {
-                if (tabActive)
+                if (tabActive) {
                     root.forceActiveFocus();
+                    root.ensureSearchFocus();
+                }
             } else {
                 searchField.text = "";
                 searchField.focus = false;
@@ -590,6 +627,14 @@ Item {
                 }
             }
         }
+    }
+
+    function ensureSearchFocus(): void {
+        if (!root.tabActive)
+            return;
+        if (!(root.visibilities?.dashboard ?? false))
+            return;
+        searchFocusRetry.schedule();
     }
 
     component SectionTab: Item {

@@ -8,7 +8,7 @@ import Quickshell.Widgets
 import QtQuick
 import QtQuick.Layouts
 
-Item {
+FocusScope {
     id: root
 
     required property PersistentProperties visibilities
@@ -18,8 +18,29 @@ Item {
     readonly property real nonAnimWidth: view.implicitWidth + viewWrapper.anchors.margins * 2
     readonly property real nonAnimHeight: tabs.implicitHeight + tabs.anchors.topMargin + view.implicitHeight + viewWrapper.anchors.margins * 2
 
+    focus: root.visibilities.dashboard
+    activeFocusOnTab: true
+
     implicitWidth: nonAnimWidth
     implicitHeight: nonAnimHeight
+
+    Keys.priority: Keys.BeforeItem
+    Keys.onPressed: function(event) {
+        if (!root.visibilities.dashboard)
+            return;
+        if (root.handleTabArrowNavigation(event))
+            return;
+        const searchField = progsPane.item?.searchField;
+        if (searchField && searchField.activeFocus)
+            return;
+        if (!event.text || event.text.length === 0)
+            return;
+        if (event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))
+            return;
+
+        root.triggerProgsSearch(event.text);
+        event.accepted = true;
+    }
 
     Tabs {
         id: tabs
@@ -86,18 +107,6 @@ Item {
                     contentX = Qt.binding(() => currentItem.x);
             }
 
-            Keys.onPressed: function(event) {
-                if (!root.visibilities.dashboard)
-                    return;
-                if (!event.text || event.text.length === 0)
-                    return;
-                if (event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))
-                    return;
-
-                root.triggerProgsSearch(event.text);
-                event.accepted = true;
-            }
-
             RowLayout {
                 id: row
 
@@ -156,6 +165,7 @@ Item {
     function triggerProgsSearch(text): void {
         if (!text || text.length === 0)
             return;
+        root.forceActiveFocus();
         root.pendingSearchText = `${root.pendingSearchText}${text}`;
         if (root.state.currentTab !== progsPane.index)
             root.state.currentTab = progsPane.index;
@@ -175,17 +185,52 @@ Item {
     function ensureTypingFocus(): void {
         if (!root.visibilities.dashboard)
             return;
+        root.forceActiveFocus();
         if (root.state.currentTab === progsPane.index)
             return;
         view.forceActiveFocus();
+    }
+
+    function handleTabArrowNavigation(event): bool {
+        if (!event)
+            return false;
+        if (event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))
+            return false;
+        const searchField = progsPane.item?.searchField;
+        if (searchField && searchField.activeFocus)
+            return false;
+
+        if (event.key === Qt.Key_Right || event.key === Qt.Key_Down) {
+            root.shiftTab(1);
+            event.accepted = true;
+            return true;
+        }
+        if (event.key === Qt.Key_Left || event.key === Qt.Key_Up) {
+            root.shiftTab(-1);
+            event.accepted = true;
+            return true;
+        }
+        return false;
+    }
+
+    function shiftTab(delta): void {
+        if (!delta)
+            return;
+        const next = Math.max(0, Math.min(tabs.count - 1, root.state.currentTab + delta));
+        if (next === root.state.currentTab)
+            return;
+        root.state.currentTab = next;
     }
 
     Connections {
         target: root.visibilities
 
         function onDashboardChanged(): void {
-            if (root.visibilities.dashboard)
+            if (root.visibilities.dashboard) {
+                root.forceActiveFocus();
+                Qt.callLater(() => root.forceActiveFocus());
                 root.ensureTypingFocus();
+            }
         }
     }
 
