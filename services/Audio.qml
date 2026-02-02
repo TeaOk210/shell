@@ -14,14 +14,14 @@ Singleton {
     property string previousSourceName: ""
 
     readonly property var nodes: Pipewire.nodes.values.reduce((acc, node) => {
-        if (!node.isStream) {
+        if (node.isStream) {
+            if (node.audio && (node.type & PwNodeType.AudioOutStream))
+                acc.streams.push(node);
+        } else {
             if (node.isSink)
                 acc.sinks.push(node);
             else if (node.audio)
                 acc.sources.push(node);
-        } else if (node.isStream && node.audio) {
-            // Application streams (output streams)
-            acc.streams.push(node);
         }
         return acc;
     }, {
@@ -110,6 +110,19 @@ Singleton {
             return qsTr("Unknown");
         // Try application name first, then description, then name
         return stream.applicationName || stream.description || stream.name || qsTr("Unknown Application");
+    }
+
+    function setNodeVolume(node: PwNode, newVolume: real): void {
+        if (node?.ready && node.audio) {
+            node.audio.muted = false;
+            node.audio.volume = Math.max(0, Math.min(Config.services.maxVolume, newVolume));
+        }
+    }
+
+    function adjustNodeVolume(node: PwNode, amount: real): void {
+        if (!node?.audio)
+            return;
+        setNodeVolume(node, (node.audio.volume ?? 0) + amount);
     }
 
     onSinkChanged: {

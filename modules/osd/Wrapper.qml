@@ -11,6 +11,7 @@ Item {
 
     required property ShellScreen screen
     required property var visibilities
+    required property Item popouts
     property bool hovered
     readonly property Brightness.Monitor monitor: Brightness.getMonitorForScreen(root.screen)
     readonly property bool shouldBeActive: visibilities.osd && Config.osd.enabled && !(visibilities.utilities && Config.utilities.enabled)
@@ -129,6 +130,7 @@ Item {
             sourceVolume: root.sourceVolume
             sourceMuted: root.sourceMuted
             brightness: root.brightness
+            popouts: root.popouts
         }
     }
 }

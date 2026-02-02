@@ -38,6 +38,7 @@ Item {
         clip: session.width > 0 || sidebar.width > 0
         screen: root.screen
         visibilities: root.visibilities
+        popouts: popouts
 
         anchors.verticalCenter: parent.verticalCenter
         anchors.right: parent.right
