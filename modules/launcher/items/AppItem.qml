@@ -16,6 +16,7 @@ Item {
     property string closeDrawer: "launcher"
     property var list
     signal rightClicked(var entry)
+    property bool hoverGuardActive: false
 
     implicitHeight: Config.launcher.sizes.itemHeight
 
@@ -31,10 +32,41 @@ Item {
                 root.rightClicked(root.modelData);
                 return;
             }
+            if (root.visibilities && root.closeDrawer) {
+                if (typeof root.visibilities[root.closeDrawer] !== "undefined")
+                    root.visibilities[root.closeDrawer] = false;
+                else if (root.visibilities.setProperty)
+                    root.visibilities.setProperty(root.closeDrawer, false);
+                if (root.closeDrawer === "dashboard" && Config.dashboard.showOnHover)
+                    Qt.callLater(() => root.startHoverGuard());
+            }
             Apps.launch(root.modelData);
-            if (root.visibilities && root.closeDrawer && (root.closeDrawer in root.visibilities))
-                root.visibilities[root.closeDrawer] = false;
         }
+    }
+
+    Timer {
+        id: hoverGuardTimer
+
+        interval: 250
+        repeat: false
+        onTriggered: root.stopHoverGuard()
+    }
+
+    function startHoverGuard(): void {
+        if (!root.visibilities || typeof root.visibilities.dashboardLock === "undefined")
+            return;
+        root.hoverGuardActive = true;
+        root.visibilities.dashboardLock = true;
+        hoverGuardTimer.restart();
+    }
+
+    function stopHoverGuard(): void {
+        if (!root.hoverGuardActive)
+            return;
+        root.hoverGuardActive = false;
+        hoverGuardTimer.stop();
+        if (root.visibilities && typeof root.visibilities.dashboardLock !== "undefined")
+            root.visibilities.dashboardLock = false;
     }
 
     Item {
