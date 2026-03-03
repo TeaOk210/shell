@@ -25,18 +25,9 @@ Item {
     property bool tabActive: true
     property bool userSelectedSection: false
     readonly property bool searchVisible: searchField.text.length > 0
-    readonly property var currentList: root.currentSection === 0 ? pinnedList : allList
+    readonly property var currentList: root.searchVisible ? allList : (root.currentSection === 0 ? pinnedList : allList)
 
     readonly property int pad: Appearance.padding.large
-
-    PersistentProperties {
-        id: pinnedState
-
-        property var pinnedIds: []
-
-        reloadableId: "dashboardPinned"
-        onPinnedIdsChanged: root.updatePinnedEntries()
-    }
 
     Timer {
         id: searchFocusRetry
@@ -117,23 +108,39 @@ Item {
     }
 
     function updateAllEntries(): void {
-        var entries = LauncherServices.Apps.search("") || [];
+        var entries = DesktopEntries.applications.values || [];
         var out = [];
         for (var i = 0; i < entries.length; i++) {
             var entry = normalizeEntry(entries[i]);
             if (isValidEntry(entry))
                 out.push(entry);
         }
+        out.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
         root.allEntries = out;
         updatePinnedEntries();
     }
 
+    function entryMatchesSearch(entry, searchText): bool {
+        if (!entry)
+            return false;
+
+        var text = (searchText || "").trim().toLowerCase();
+        if (text.length === 0)
+            return true;
+
+        var haystack = [
+            entry.name || "",
+            entry.genericName || "",
+            entry.comment || "",
+            entry.id || "",
+            entry.execString || ""
+        ].join("\n").toLowerCase();
+
+        return haystack.indexOf(text) !== -1;
+    }
+
     function updatePinnedEntries(): void {
-        var ids = sanitizePinnedIds(pinnedState.pinnedIds);
-        if (!idsEqual(ids, pinnedState.pinnedIds)) {
-            pinnedState.pinnedIds = ids;
-            return;
-        }
+        var ids = sanitizePinnedIds(Config.launcher.favouriteApps);
 
         var allEntries = root.allEntries || [];
         var byId = {};
@@ -160,9 +167,7 @@ Item {
         if (typeof entry.id !== "string" || entry.id.length === 0)
             return;
 
-        var ids = pinnedState.pinnedIds;
-        if (!ids || !(ids instanceof Array))
-            ids = [];
+        var ids = sanitizePinnedIds(Config.launcher.favouriteApps);
 
         var idx = ids.indexOf(entry.id);
         if (idx === -1) {
@@ -172,7 +177,8 @@ Item {
             next.splice(idx, 1);
             ids = next;
         }
-        pinnedState.pinnedIds = ids;
+        Config.launcher.favouriteApps = ids;
+        Config.save();
         updatePinnedEntries();
     }
 
@@ -184,12 +190,13 @@ Item {
             return;
         }
 
-        var results = LauncherServices.Apps.search(text) || [];
         var out = [];
         var ids = {};
-        for (var i = 0; i < results.length; i++) {
-            var entry = normalizeEntry(results[i]);
-            if (!isValidEntry(entry))
+
+        var allEntries = root.allEntries || [];
+        for (var i = 0; i < allEntries.length; i++) {
+            var entry = normalizeEntry(allEntries[i]);
+            if (!isValidEntry(entry) || !entryMatchesSearch(entry, text))
                 continue;
             out.push(entry);
             if (entry.id)
@@ -226,8 +233,10 @@ Item {
             list.positionViewAtIndex(list.currentIndex, ListView.Contain);
     }
 
-    function applyDefaultSection(): void {
-        if (!root.tabActive || root.userSelectedSection)
+    function applyDefaultSection(force = false): void {
+        if (!root.tabActive)
+            return;
+        if (!force && root.userSelectedSection)
             return;
         root.currentSection = root.pinnedEntries.length > 0 ? 0 : 1;
     }
@@ -328,7 +337,7 @@ Item {
             forceActiveFocus();
             root.ensureSearchFocus();
             root.userSelectedSection = false;
-            root.applyDefaultSection();
+            root.applyDefaultSection(true);
         } else if (searchField.activeFocus) {
             searchField.focus = false;
         }
@@ -363,6 +372,10 @@ Item {
         function onHiddenAppsChanged(): void {
             root.updateAllEntries();
         }
+
+        function onFavouriteAppsChanged(): void {
+            root.updatePinnedEntries();
+        }
     }
 
     Connections {
@@ -370,6 +383,8 @@ Item {
         function onDashboardChanged(): void {
             if (root.visibilities.dashboard) {
                 if (tabActive) {
+                    root.userSelectedSection = false;
+                    root.applyDefaultSection(true);
                     root.forceActiveFocus();
                     root.ensureSearchFocus();
                 }
@@ -517,6 +532,7 @@ Item {
             }
 
             RowLayout {
+                visible: !root.searchVisible
                 Layout.fillWidth: true
                 spacing: Appearance.spacing.small
 
@@ -550,6 +566,7 @@ Item {
                 clip: true
 
                 readonly property bool active: root.currentSection === 0
+                    && !root.searchVisible
 
                 allowActions: false
                 closeDrawer: "dashboard"
@@ -563,7 +580,11 @@ Item {
                 scale: active ? 1 : 0.98
                 visible: opacity > 0.01
 
-                onAppRightClicked: root.togglePinned(entry)
+                onAppRightClicked: function(entry) {
+                    root.togglePinned(entry);
+                    root.userSelectedSection = false;
+                    root.applyDefaultSection(true);
+                }
                 Keys.onPressed: function(event) {
                     if (root.handleNavigationKey(event))
                         return;
@@ -592,6 +613,7 @@ Item {
                 clip: true
 
                 readonly property bool active: root.currentSection === 1
+                    || root.searchVisible
 
                 allowActions: false
                 closeDrawer: "dashboard"
@@ -605,7 +627,11 @@ Item {
                 scale: active ? 1 : 0.98
                 visible: opacity > 0.01
 
-                onAppRightClicked: root.togglePinned(entry)
+                onAppRightClicked: function(entry) {
+                    root.togglePinned(entry);
+                    root.userSelectedSection = false;
+                    root.applyDefaultSection(true);
+                }
                 Keys.onPressed: function(event) {
                     if (root.handleNavigationKey(event))
                         return;

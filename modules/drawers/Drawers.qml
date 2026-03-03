@@ -15,11 +15,14 @@ import QtQuick.Effects
 Variants {
     model: Quickshell.screens
 
-    Scope {
-        id: scope
+        Scope {
+            id: scope
 
-        required property ShellScreen modelData
-        readonly property bool barDisabled: Strings.testRegexList(Config.bar.excludedScreens, modelData.name)
+            required property ShellScreen modelData
+            readonly property bool barDisabled: {
+                const screenName = modelData?.name;
+                return screenName ? Strings.testRegexList(Config.bar.excludedScreens, screenName) : false;
+            }
 
         Exclusions {
             screen: scope.modelData
