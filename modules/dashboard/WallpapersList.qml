@@ -15,7 +15,6 @@ Item {
     readonly property string steamRoot: `${Paths.home}/.steam/steam/steamapps/workshop/content/431960`
     readonly property string steamAltRoot: `${Paths.home}/.local/share/Steam/steamapps/workshop/content/431960`
     readonly property string thumbsDir: `${Paths.cache}/wallpaper-thumbs`
-    readonly property string debugPath: `${Paths.state}/wallpapers-list-debug.txt`
     property alias model: entriesModel
     readonly property int count: entriesModel.count
     property var entries: []
@@ -234,6 +233,7 @@ Item {
     }
 
     function writeDebug(): void {
+        // Keep wallpaper diagnostics in memory only; async FileView saves were crashing during rapid view teardown.
         const lines = [];
         lines.push(`videoRoot=${videoRoot}`);
         lines.push(`videoAltRoot=${videoAltRoot}`);
@@ -258,14 +258,12 @@ Item {
             lines.push(`${i + 1}. video=${entry.video} preview=${entry.preview || "-"}`);
         }
         debugLines = lines;
-        debugView.setText(lines.join("\n"));
     }
 
     function appendDebug(line: string): void {
         debugLines.push(line);
         if (debugLines.length > 200)
             debugLines.shift();
-        debugView.setText(debugLines.join("\n"));
     }
 
     Timer {
@@ -444,16 +442,6 @@ Item {
         filter: FileSystemModel.Files
         nameFilters: ["preview.*"]
         onEntriesChanged: root.scheduleRebuild()
-    }
-
-    FileView {
-        id: debugView
-
-        path: root.debugPath
-        onLoadFailed: err => {
-            if (err === FileViewError.FileNotFound)
-                setText("");
-        }
     }
 
     Component.onCompleted: scheduleRebuild()
