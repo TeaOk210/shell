@@ -13,7 +13,8 @@ Options:
   --build-dir <path>   CMake build directory. Defaults to build.
   --build-script <path>
                        Run this script after syncing instead of cmake.
-  --merge              Merge upstream instead of rebasing.
+  --merge              Merge upstream into the current branch. This is the default.
+  --rebase             Rebase the current branch onto upstream instead of merging.
   --no-push            Do not push the updated branch to origin.
   --skip-build         Do not run cmake configure/build.
   --install            Run cmake --install after a successful build.
@@ -34,7 +35,7 @@ fork_remote=${FORK_REMOTE:-origin}
 branch=$(git -C "${repo_root}" branch --show-current)
 build_dir=build
 build_script=
-sync_mode=rebase
+sync_mode=merge
 push_after_sync=1
 run_build=1
 run_install=0
@@ -56,6 +57,10 @@ while (($# > 0)); do
             ;;
         --merge)
             sync_mode=merge
+            shift
+            ;;
+        --rebase)
+            sync_mode=rebase
             shift
             ;;
         --no-push)

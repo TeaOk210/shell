@@ -224,8 +224,8 @@ If you already have your own packaging/install pipeline, point the script to it 
 What it does:
 
 - fetches `upstream/<current-branch>`
-- rebases your current branch on top of it
-- pushes the result back to `origin` with `--force-with-lease`
+- merges it into your current branch
+- pushes the result back to `origin`
 - runs `cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release`
 - runs `cmake --build build`
 - optionally runs `cmake --install build`
@@ -233,7 +233,7 @@ What it does:
 
 Useful flags:
 
-- `--merge` if you prefer merge commits over rebasing
+- `--rebase` if you prefer a linear history instead of merge commits
 - `--no-push` if you only want to update locally first
 - `--skip-build` if you only want to sync git history
 - `--build-script ~/dotfiles/shell.build/update-local-repo.sh` to reuse your own PKGBUILD flow
