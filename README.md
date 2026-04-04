@@ -202,6 +202,46 @@ cd $XDG_CONFIG_HOME/quickshell/caelestia
 git pull
 ```
 
+### Keeping a fork in sync
+
+If you maintain your own fork with custom QML changes, keep your fork remote as `origin`
+and the original project as `upstream`.
+
+This repo includes a helper script that syncs your current branch with `upstream`, rebuilds
+the project, and can optionally reinstall it:
+
+```sh
+./scripts/update-from-upstream.sh --install
+```
+
+If you already have your own packaging/install pipeline, point the script to it instead:
+
+```sh
+./scripts/update-from-upstream.sh \
+  --build-script ~/dotfiles/shell.build/update-local-repo.sh
+```
+
+What it does:
+
+- fetches `upstream/<current-branch>`
+- rebases your current branch on top of it
+- pushes the result back to `origin` with `--force-with-lease`
+- runs `cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release`
+- runs `cmake --build build`
+- optionally runs `cmake --install build`
+- or runs your custom build script if `--build-script` is provided
+
+Useful flags:
+
+- `--merge` if you prefer merge commits over rebasing
+- `--no-push` if you only want to update locally first
+- `--skip-build` if you only want to sync git history
+- `--build-script ~/dotfiles/shell.build/update-local-repo.sh` to reuse your own PKGBUILD flow
+- `--allow-dirty` if you know you want to run on a non-clean tree
+
+For a fully automatic workflow, you can call this script from a `systemd --user` timer or
+from a login/autostart script before launching Quickshell.
+
 ## Configuring
 
 All configuration options should be put in `~/.config/caelestia/shell.json`. This file is _not_ created by
